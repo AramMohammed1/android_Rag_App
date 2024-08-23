@@ -11,7 +11,7 @@ import java.io.File
 
 interface RagResponseRepo {
     suspend fun postQuestion(question:String,chunks:Int,numofresults:Int ):ChatResponse
-    suspend fun uploadFiles(file: MultipartBody.Part): Response<UploadResponse>
+    suspend fun uploadFiles(files: List<MultipartBody.Part>): Response<UploadResponse>
 
 
 }
@@ -22,9 +22,9 @@ class NetworkRagRepository(private val apiService:RagApiService):RagResponseRepo
         return apiService.postQuestion(RequestModel(listOf("aram_mohammed.pdf"),question,chunks,numofresults) )
     }
 
-    override suspend fun uploadFiles(file: MultipartBody.Part):Response<UploadResponse>
+    override suspend fun uploadFiles(files: List<MultipartBody.Part>):Response<UploadResponse>
     {
-        return apiService.uploadFile(listOf(file))
+        return apiService.uploadFile(files)
     }
 
 

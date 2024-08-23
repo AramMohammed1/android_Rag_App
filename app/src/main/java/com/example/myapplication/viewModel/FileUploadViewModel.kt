@@ -10,8 +10,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.myapplication.RagApplication
 import com.example.myapplication.database.RagResponseRepo
 import kotlinx.coroutines.launch
+import okhttp3.MediaType
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
 import java.io.File
 import java.io.FileOutputStream
@@ -22,10 +24,15 @@ class FileUploadViewModel(application: Application, private val ragResponseRepo:
         viewModelScope.launch {
             try {
                 val file = getFileFromUri(uri)
+                val files:List<File> = listOf(file)
                 file.let {
-                    val requestFile = it.asRequestBody("multipart/form-data".toMediaTypeOrNull())
-                    val body = MultipartBody.Part.createFormData("file", it.name, requestFile)
-                    val response = ragResponseRepo.uploadFiles(body)
+
+                    val fileParts = files.map { file ->
+                        val requestFile = RequestBody.create("multipart/form-data".toMediaTypeOrNull(), file)
+                        MultipartBody.Part.createFormData("files", file.name, requestFile)
+                    }
+
+                    val response = ragResponseRepo.uploadFiles(fileParts)
 
                     onUploadComplete(response.isSuccessful)
                 }
