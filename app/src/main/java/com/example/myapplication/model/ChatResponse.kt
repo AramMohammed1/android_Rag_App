@@ -8,10 +8,8 @@ import kotlinx.serialization.Serializable
 data class ChatResponse(
     @SerialName(value = "model")
     var model:String?= null,
-
     @SerialName(value = "message")
     var message:String?= null,
-
     @SerialName(value = "role")
     var role:String? = null
 )

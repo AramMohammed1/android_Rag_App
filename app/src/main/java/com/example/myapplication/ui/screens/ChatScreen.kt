@@ -1,6 +1,9 @@
 package com.example.myapplication.ui.screens
 
+import android.net.Uri
 import android.util.Log
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +43,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Color.Companion.Red
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -49,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.example.myapplication.R
 import com.example.myapplication.model.Message
 import com.example.myapplication.ui.theme.MyApplicationTheme
+import com.example.myapplication.viewModel.FileUploadViewModel
 import com.example.myapplication.viewModel.MessageState
 import com.example.myapplication.viewModel.RagAppViewModel
 
@@ -163,6 +169,7 @@ fun UserInput(
     textState: TextFieldValue,
     onTextChange: (TextFieldValue) -> Unit,
     onSendClick: () -> Unit,
+    fileUploadViewModel: FileUploadViewModel,
     modifier:Modifier = Modifier
 ) {
     Row(
@@ -210,10 +217,11 @@ fun UserInput(
 @Composable
 fun ChatScreen(
     ragAppViewModel: RagAppViewModel,
+    fileUploadViewModel: FileUploadViewModel,
     modifier: Modifier = Modifier) {
     var messages by remember { mutableStateOf(listOf<Message>()) }
     var textState by remember { mutableStateOf(TextFieldValue("")) }
-
+    val context = LocalContext.current
     Column(modifier = modifier
         .fillMaxSize()
         .verticalScroll(rememberScrollState()))
@@ -221,6 +229,8 @@ fun ChatScreen(
         val messageState = ragAppViewModel.messageState
 
         MessagesList(messages = messages, modifier = modifier.weight(1f))
+        FileUploadButton(fileUploadViewModel = fileUploadViewModel)
+
         UserInput(
             textState = textState,
 
@@ -237,6 +247,7 @@ fun ChatScreen(
                 }
 
             },
+            fileUploadViewModel=fileUploadViewModel,
             modifier = modifier
         )
         LaunchedEffect(messageState) {
@@ -255,6 +266,40 @@ fun ChatScreen(
                 }
             }
         }
+    }
+}
+
+
+@Composable
+fun FileUploadButton(fileUploadViewModel: FileUploadViewModel) {
+    var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
+    var uploadStatus by remember { mutableStateOf<String?>(null) }
+
+    val context = LocalContext.current
+
+    val resultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
+        selectedFileUri = uri
+    }
+
+
+    Button(onClick = { resultLauncher.launch("*/*") }) {
+        Text(text = "Pick File")
+    }
+
+
+    selectedFileUri?.let { uri ->
+        Button(onClick = {
+            fileUploadViewModel.uploadFile(uri) { success ->
+                uploadStatus = if (success) "Upload Successful" else "Upload Failed"
+            }
+        }) {
+            Text(text = "Upload File")
+        }
+    }
+
+    uploadStatus?.let {
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(text = it)
     }
 }
 
