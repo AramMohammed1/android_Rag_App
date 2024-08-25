@@ -10,7 +10,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.myapplication.RagApplication
+import com.example.myapplication.database.BackRepo
 import com.example.myapplication.database.RagResponseRepo
+import com.example.myapplication.model.Chat
 import com.example.myapplication.model.Message
 import kotlinx.coroutines.launch
 import java.io.IOException
@@ -21,22 +23,23 @@ sealed interface MessageState {
     object Error : MessageState
     object Loading : MessageState
 }
-class RagAppViewModel(private val ragResponseRepo: RagResponseRepo): ViewModel(){
+
+class MessageViewModel(private val ragResponseRepo: RagResponseRepo,private val backRepo:BackRepo): ViewModel(){
     var messageState:MessageState by mutableStateOf(MessageState.Loading)
         internal set
-
     init {
     }
 
-    fun sendMessage(question:String, chunks:Int, numofresults:Int){
+
+    fun sendMessage(fileNames:List<String>,question:String, chunks:Int, numofresults:Int){
         viewModelScope.launch {
 
             messageState=try{
-                 var x=ragResponseRepo.postQuestion(question,chunks,numofresults).message
+                 var x=ragResponseRepo.postQuestion(fileNames,question,chunks,numofresults).message
                  if(x==null){
                      x=""
                  }
-                Log.e("aram",x)
+
                 MessageState.Success(Message(x,false))
              }
              catch (e: IOException){
@@ -55,7 +58,8 @@ class RagAppViewModel(private val ragResponseRepo: RagResponseRepo): ViewModel()
             initializer {
                 val application = (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as RagApplication)
                 val ragResponseRepo = application.container.ragResponseRepo
-                RagAppViewModel(ragResponseRepo)
+                val backRepo = application.container.backRepo
+                MessageViewModel(ragResponseRepo,backRepo)
             }
         }
     }

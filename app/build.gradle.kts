@@ -76,6 +76,11 @@ dependencies {
     implementation("androidx.navigation:navigation-runtime-ktx:2.7.7")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation(libs.androidx.lifecycle.viewmodel.android)
+    implementation(libs.androidx.constraintlayout.core)
+
+    implementation("io.coil-kt:coil-compose:2.6.0")
+    implementation("androidx.navigation:navigation-runtime-ktx:2.7.7")
+    implementation("androidx.navigation:navigation-compose:2.7.7")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

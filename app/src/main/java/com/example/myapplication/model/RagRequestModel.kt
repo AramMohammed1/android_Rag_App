@@ -4,7 +4,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-data class RequestModel(
+data class RagRequestModel(
     @SerialName(value = "filepaths")
     val filename:List<String> = listOf(),
     @SerialName(value = "question")

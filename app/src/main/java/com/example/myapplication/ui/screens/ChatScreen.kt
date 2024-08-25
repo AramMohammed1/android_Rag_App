@@ -1,10 +1,9 @@
 package com.example.myapplication.ui.screens
 
 import android.net.Uri
-import android.util.Log
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -14,22 +13,20 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.selection.TextSelectionColors
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -41,27 +38,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Color.Companion.Red
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.R
 import com.example.myapplication.model.Message
-import com.example.myapplication.ui.theme.MyApplicationTheme
 import com.example.myapplication.viewModel.FileUploadViewModel
 import com.example.myapplication.viewModel.MessageState
-import com.example.myapplication.viewModel.RagAppViewModel
+import com.example.myapplication.viewModel.MessageViewModel
 
 
 @Composable
 fun UserMessageItem(message: Message,modifier:Modifier =Modifier){
-    val alignment = Alignment.End
     val backgroundColor = Color(0xFF0084FF)
     Row(
         modifier = modifier
@@ -100,7 +91,6 @@ fun UserMessageItem(message: Message,modifier:Modifier =Modifier){
 }
 @Composable
 fun ModelMessageItem(message: Message,modifier :Modifier = Modifier) {
-    val alignment = Alignment.Start
     val backgroundColor =  Color(0xFFF0F0F0 )
 
     Row(
@@ -161,17 +151,19 @@ fun MessagesList(messages: List<Message>, modifier: Modifier = Modifier) {
         }
     }
 }
-var send="Send"
+
+
 @ExperimentalMaterial3Api
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UserInput(
-    textState: TextFieldValue,
-    onTextChange: (TextFieldValue) -> Unit,
-    onSendClick: () -> Unit,
-    fileUploadViewModel: FileUploadViewModel,
-    modifier:Modifier = Modifier
+    modifier:Modifier = Modifier,
+    fileUploadViewModel:FileUploadViewModel,
+    textState: TextFieldValue =  TextFieldValue("") ,
+    onTextChange: (TextFieldValue) -> Unit ={},
+    onSendClick: () -> Unit={},
 ) {
+
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -179,7 +171,7 @@ fun UserInput(
     ) {
         val myColor = Color(0xFF0084FF)
 
-        TextField(
+        OutlinedTextField(
             value = textState,
             onValueChange = onTextChange,
             modifier = modifier
@@ -189,21 +181,24 @@ fun UserInput(
                 unfocusedLabelColor = myColor,
                 cursorColor = myColor,
                 focusedLabelColor = myColor,
-//                textColor = myColor,
                 containerColor = myColor.copy(.2f),
                 focusedIndicatorColor =myColor,
                 unfocusedIndicatorColor = myColor.copy(
                     0.5f)
             ),
             shape = RoundedCornerShape(15.dp, 15.dp, 15.dp, 15.dp),
-            placeholder = { Text(text = "Type a message") }
+            placeholder = { Text(text = "Type a message") },
+            singleLine = true,
+            trailingIcon = {
+                uploadbutton(fileUploadViewModel =fileUploadViewModel )
+            }
         )
         Button(
             onClick = onSendClick,
             colors = ButtonDefaults.buttonColors(containerColor= Color(0xFF0084FF)),
             modifier = modifier.align(Alignment.CenterVertically)
         ) {
-            Text(text = send)
+            Text(text = "send")
         }
     }
 }
@@ -212,24 +207,23 @@ fun UserInput(
 
 
 
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    ragAppViewModel: RagAppViewModel,
+    messageViewModel: MessageViewModel,
     fileUploadViewModel: FileUploadViewModel,
     modifier: Modifier = Modifier) {
     var messages by remember { mutableStateOf(listOf<Message>()) }
     var textState by remember { mutableStateOf(TextFieldValue("")) }
-    val context = LocalContext.current
+    var fileNames by fileUploadViewModel.fileNames
+    var uploadStatus by fileUploadViewModel.uploadStatus
     Column(modifier = modifier
         .fillMaxSize()
         .verticalScroll(rememberScrollState()))
     {
-        val messageState = ragAppViewModel.messageState
-
+        val messageState = messageViewModel.messageState
+        val context = LocalContext.current
         MessagesList(messages = messages, modifier = modifier.weight(1f))
-        FileUploadButton(fileUploadViewModel = fileUploadViewModel)
 
         UserInput(
             textState = textState,
@@ -237,13 +231,14 @@ fun ChatScreen(
             onTextChange = { textState = it },
 
             onSendClick = {
-                if (textState.text.isNotBlank()) {
+                if (textState.text.isNotBlank() && uploadStatus == "Upload Successful") {
                     messages = messages + Message(textState.text,true)
                     messages= messages + Message("Loading ... ",false)
-                    send = "Dont Send"
-                    ragAppViewModel.sendMessage(textState.text,500,2)
+                    messageViewModel.sendMessage(fileNames,textState.text,500,2)
                     textState = TextFieldValue("")
-
+                }
+                else{
+                    Toast.makeText(context, "Empty Field", Toast.LENGTH_SHORT)
                 }
 
             },
@@ -253,14 +248,12 @@ fun ChatScreen(
         LaunchedEffect(messageState) {
             when (messageState) {
                 is MessageState.Success -> {
-                    send = "Send"
                     messages = messages.dropLast(1)
                     messages = messages + messageState.message
                 }
                 is MessageState.Loading -> {
                 }
                 is MessageState.Error -> {
-                    send = "Send"
                     messages = messages.dropLast(1)
                     messages = messages + Message("Something went wrong, please ask your question again", false)
                 }
@@ -270,36 +263,52 @@ fun ChatScreen(
 }
 
 
-@Composable
-fun FileUploadButton(fileUploadViewModel: FileUploadViewModel) {
-    var selectedFileUri by remember { mutableStateOf<Uri?>(null) }
-    var uploadStatus by remember { mutableStateOf<String?>(null) }
 
+@Composable
+fun uploadbutton(fileUploadViewModel:FileUploadViewModel){
+    var selectedFileUris by fileUploadViewModel.selectedFileUris
+    var uploadStatus by fileUploadViewModel.uploadStatus
+    val fileNames by fileUploadViewModel.fileNames
+    val resultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
+        fileUploadViewModel.updateSelectedFileUris(uris)
+    }
     val context = LocalContext.current
 
-    val resultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        selectedFileUri = uri
-    }
+    Column {
+        Button(
+            onClick = {
+                resultLauncher.launch(arrayOf("*/*"))
 
-
-    Button(onClick = { resultLauncher.launch("*/*") }) {
-        Text(text = "Pick File")
-    }
-
-
-    selectedFileUri?.let { uri ->
-        Button(onClick = {
-            fileUploadViewModel.uploadFile(uri) { success ->
-                uploadStatus = if (success) "Upload Successful" else "Upload Failed"
-            }
-        }) {
-            Text(text = "Upload File")
+            },
+            colors = ButtonDefaults.buttonColors(
+                Color.Transparent
+            ),
+        ) {
+            Icon(
+                painter =
+                when (uploadStatus) {
+                    "Upload Failed" -> painterResource(id = R.drawable.baseline_error_outline_24)
+                    else -> painterResource(id = R.drawable.baseline_attach_file_24)
+                },
+                contentDescription = "Attach File",
+                tint =
+                when (uploadStatus) {
+                    "Upload Failed" -> Color.Red
+                    else -> Color.DarkGray
+                },
+                modifier = Modifier.background(Color.Transparent)
+            )
         }
-    }
 
-    uploadStatus?.let {
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(text = it)
+
+    }
+    LaunchedEffect(uploadStatus) {
+
+        when (uploadStatus) {
+            "Upload Successful" -> Toast.makeText(context, "Files Uploaded successfully", Toast.LENGTH_SHORT).show()
+            "Upload Failed" -> Toast.makeText(context, "Error occurred Uploading files", Toast.LENGTH_SHORT).show()
+            null -> {}
+        }
     }
 }
 

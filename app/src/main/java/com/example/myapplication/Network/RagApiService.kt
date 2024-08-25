@@ -1,7 +1,7 @@
 package com.example.myapplication.Network
 
 import com.example.myapplication.model.ChatResponse
-import com.example.myapplication.model.RequestModel
+import com.example.myapplication.model.RagRequestModel
 import com.example.myapplication.model.UploadResponse
 import com.example.myapplication.utils.Constants
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
@@ -12,13 +12,10 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.Body
-import retrofit2.http.Field
-import retrofit2.http.FormUrlEncoded
 import retrofit2.http.Headers
 import retrofit2.http.Multipart
 import retrofit2.http.POST
 import retrofit2.http.Part
-import retrofit2.http.Query
 
 
 fun getLoggerInterceptor(): HttpLoggingInterceptor {
@@ -36,7 +33,7 @@ interface RagApiService{
 
     @POST("/api/query/")
     @Headers("Content-Type: application/json")
-    suspend fun postQuestion(@Body request:RequestModel): ChatResponse
+    suspend fun postQuestion(@Body request:RagRequestModel): ChatResponse
 
 
     @Multipart
@@ -51,8 +48,11 @@ interface RagApiService{
                     .build()
             )
             .addConverterFactory(RsponseJson.asConverterFactory("application/json".toMediaType()))
-            .baseUrl(Constants.BASE_URL)
+            .baseUrl(Constants.RAG_BASE_URL)
             .build()
 
     }
+
+
+
 }

@@ -2,6 +2,7 @@ package com.example.myapplication.viewModel
 import android.app.Application
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.compose.runtime.mutableStateOf
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -19,13 +20,29 @@ import java.io.File
 import java.io.FileOutputStream
 
 class FileUploadViewModel(application: Application, private val ragResponseRepo: RagResponseRepo) : AndroidViewModel(application) {
+    val selectedFileUris = mutableStateOf<List<Uri>>(emptyList())
+    val uploadStatus = mutableStateOf<String?>(null)
+    val fileNames = mutableStateOf<List<String>>(emptyList())
 
-    fun uploadFile(uri: Uri, onUploadComplete: (Boolean) -> Unit) {
+    fun updateSelectedFileUris(uris: List<Uri>) {
+        selectedFileUris.value = uris
+        fileNames.value = uris.map { getFileNameFromUri(it)!! }
+        uploadFiles(fileNames.value,uris) { success ->
+        if (success) {uploadStatus.value ="Upload Successful"} else uploadStatus.value = "Upload Failed"
+        }
+    }
+
+    fun uploadFiles(fileNames:List<String?>,uris: List<Uri>, onUploadComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
             try {
-                val file = getFileFromUri(uri)
-                val files:List<File> = listOf(file)
-                file.let {
+                var files:List<File> = listOf()
+
+                uris.map{
+                    uri->
+                    val file = getFileFromUri(uri)
+                    files = files + file
+                }
+                files.let {
 
                     val fileParts = files.map { file ->
                         val requestFile = RequestBody.create("multipart/form-data".toMediaTypeOrNull(), file)
@@ -44,10 +61,7 @@ class FileUploadViewModel(application: Application, private val ragResponseRepo:
 
     private fun getFileFromUri(uri: Uri): File {
         val context = getApplication<Application>().applicationContext
-        val cursor = context.contentResolver.query(uri, null, null, null, null)
-        cursor?.moveToFirst()
-        val fileName = cursor?.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
-        cursor?.close()
+        val fileName = getFileNameFromUri(uri)
 
         val file = File(context.cacheDir, fileName ?: "temp_file")
         val inputStream = context.contentResolver.openInputStream(uri)
@@ -58,6 +72,17 @@ class FileUploadViewModel(application: Application, private val ragResponseRepo:
 
         return file
     }
+
+    private fun getFileNameFromUri(uri: Uri): String? {
+        val context = getApplication<Application>().applicationContext
+        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        cursor?.moveToFirst()
+        val fileName = cursor?.getString(cursor.getColumnIndexOrThrow(OpenableColumns.DISPLAY_NAME))
+        cursor?.close()
+        return fileName
+
+    }
+
 
     companion object{
         val Factory : ViewModelProvider.Factory = viewModelFactory {
