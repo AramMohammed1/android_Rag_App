@@ -40,7 +40,7 @@ class MessageViewModel(private val ragResponseRepo: RagResponseRepo,private val 
                      x=""
                  }
 
-                MessageState.Success(Message(x,false))
+                MessageState.Success(Message(x,false,""))
              }
              catch (e: IOException){
                  MessageState.Error

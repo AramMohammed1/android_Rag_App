@@ -1,6 +1,6 @@
 package com.example.myapplication.Network
 
-import com.example.myapplication.model.ChatResponse
+import com.example.myapplication.model.ModelMessageResponse
 import com.example.myapplication.model.RagRequestModel
 import com.example.myapplication.model.UploadResponse
 import com.example.myapplication.utils.Constants
@@ -33,7 +33,7 @@ interface RagApiService{
 
     @POST("/api/query/")
     @Headers("Content-Type: application/json")
-    suspend fun postQuestion(@Body request:RagRequestModel): ChatResponse
+    suspend fun postQuestion(@Body request:RagRequestModel): ModelMessageResponse
 
 
     @Multipart

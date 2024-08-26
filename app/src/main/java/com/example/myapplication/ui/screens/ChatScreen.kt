@@ -1,11 +1,14 @@
 package com.example.myapplication.ui.screens
 
 import android.net.Uri
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,6 +33,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -42,6 +46,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.R
@@ -49,49 +54,79 @@ import com.example.myapplication.model.Message
 import com.example.myapplication.viewModel.FileUploadViewModel
 import com.example.myapplication.viewModel.MessageState
 import com.example.myapplication.viewModel.MessageViewModel
-
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @Composable
 fun UserMessageItem(message: Message,modifier:Modifier =Modifier){
     val backgroundColor = Color(0xFF0084FF)
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        horizontalArrangement =  Arrangement.End
-    ) {
+    var showDate by remember { mutableStateOf(false) }
+    Column (
+    ){
 
-        Box(
+        if(showDate) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+
+                Text("14-11-2002", color = Color.Gray)
+            }
+        }
+        Row(
             modifier = modifier
-                .clip(shape = RoundedCornerShape(15.dp, 15.dp, 15.dp, 15.dp))
-                .background(backgroundColor)
-
-                .align(Alignment.CenterVertically)
-                .padding(8.dp)
+                .fillMaxWidth()
+                .padding(vertical = 4.dp)
+                .clickable { showDate = !showDate }
+            ,
+            horizontalArrangement = Arrangement.End
         ) {
-            Text(text = message.text, fontSize = 16.sp, color = Color.White)
+            Box(
+                modifier = modifier
+                    .clip(shape = RoundedCornerShape(15.dp, 15.dp, 15.dp, 15.dp))
+                    .background(backgroundColor)
+                    .align(Alignment.CenterVertically)
+                    .padding(8.dp)
+            ) {
+                Text(text = message.text, fontSize = 16.sp, color = Color.White)
+
+            }
+
+            Spacer(modifier = modifier.padding(2.dp))
+            Image(
+                painter = painterResource(id = R.drawable.molham1),
+                contentDescription = "",
+                contentScale = ContentScale.Fit,
+                modifier = modifier
+                    .clip(shape = CircleShape)
+                    .background(backgroundColor)
+                    .align(Alignment.CenterVertically)
+                    .size(50.dp)
+
+            )
 
         }
-
-        Spacer(modifier = modifier.padding(2.dp))
-        Image(
-            painter = painterResource(id = R.drawable.molham1),
-            contentDescription = "",
-            contentScale = ContentScale.Fit,
-            modifier = modifier
-                .clip(shape = CircleShape)
-                .background(backgroundColor)
-                .align(Alignment.CenterVertically)
-                .size(50.dp)
-
-        )
-
     }
 
 }
+
+@Preview (showBackground = true)
 @Composable
-fun ModelMessageItem(message: Message,modifier :Modifier = Modifier) {
+fun ModelMessageItem(message: Message=Message("google",true,""),modifier :Modifier = Modifier) {
     val backgroundColor =  Color(0xFFF0F0F0 )
+    var showDate by remember { mutableStateOf(false) }
+    Column (
+    ){
+
+        if(showDate) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center
+            ) {
+
+                Text("14-11-2002", color = Color.Gray)
+            }
+        }
 
     Row(
         modifier = modifier
@@ -122,10 +157,10 @@ fun ModelMessageItem(message: Message,modifier :Modifier = Modifier) {
                 .padding(8.dp)
 
         ) {
-            Text(text = message.text, fontSize = 16.sp,color = Color.Black)
+            Text(text = message.text, fontSize = 16.sp, color = Color.Black)
 
         }
-
+    }
     }
 }
 
@@ -207,6 +242,7 @@ fun UserInput(
 
 
 
+@RequiresApi(Build.VERSION_CODES.O)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
@@ -231,9 +267,10 @@ fun ChatScreen(
             onTextChange = { textState = it },
 
             onSendClick = {
+                val localTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).toString()
                 if (textState.text.isNotBlank() && uploadStatus == "Upload Successful") {
-                    messages = messages + Message(textState.text,true)
-                    messages= messages + Message("Loading ... ",false)
+                    messages = messages + Message(textState.text,true,localTime)
+                    messages= messages + Message("Loading ... ",false,"")
                     messageViewModel.sendMessage(fileNames,textState.text,500,2)
                     textState = TextFieldValue("")
                 }
@@ -254,8 +291,9 @@ fun ChatScreen(
                 is MessageState.Loading -> {
                 }
                 is MessageState.Error -> {
+                    val localTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).toString()
                     messages = messages.dropLast(1)
-                    messages = messages + Message("Something went wrong, please ask your question again", false)
+                    messages = messages + Message("Something went wrong, please ask your question again", false,localTime)
                 }
             }
         }
