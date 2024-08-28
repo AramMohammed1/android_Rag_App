@@ -1,10 +1,7 @@
 package com.example.myapplication.ui.screens
 
-import android.net.Uri
 import android.os.Build
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -16,24 +13,27 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,17 +45,22 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.example.myapplication.R
 import com.example.myapplication.model.Message
+import com.example.myapplication.viewModel.ChatListViewModel
 import com.example.myapplication.viewModel.FileUploadViewModel
 import com.example.myapplication.viewModel.MessageState
-import com.example.myapplication.viewModel.MessageViewModel
+import com.example.myapplication.viewModel.SelectedChatUiState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+
+
 
 @Composable
 fun UserMessageItem(message: Message,modifier:Modifier =Modifier){
@@ -70,7 +75,7 @@ fun UserMessageItem(message: Message,modifier:Modifier =Modifier){
                 horizontalArrangement = Arrangement.Center
             ) {
 
-                Text("14-11-2002", color = Color.Gray)
+                Text(message.date, color = Color.Gray)
             }
         }
         Row(
@@ -112,26 +117,30 @@ fun UserMessageItem(message: Message,modifier:Modifier =Modifier){
 
 @Preview (showBackground = true)
 @Composable
-fun ModelMessageItem(message: Message=Message("google",true,""),modifier :Modifier = Modifier) {
+fun ModelMessageItem(message: Message=Message("google","request",""),modifier :Modifier = Modifier) {
     val backgroundColor =  Color(0xFFF0F0F0 )
     var showDate by remember { mutableStateOf(false) }
-    Column (
-    ){
+    Column(modifier = Modifier.imePadding() ){
 
         if(showDate) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .imePadding(),
                 horizontalArrangement = Arrangement.Center
             ) {
 
-                Text("14-11-2002", color = Color.Gray)
+                Text(message.date, color = Color.Gray)
             }
         }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp),
+            .clickable { showDate = !showDate }
+            .padding(vertical = 4.dp)
+            .imePadding(),
+
         horizontalArrangement= Arrangement.Start
     ) {
 
@@ -155,6 +164,7 @@ fun ModelMessageItem(message: Message=Message("google",true,""),modifier :Modifi
                 .background(backgroundColor)
                 .align(Alignment.CenterVertically)
                 .padding(8.dp)
+                .imePadding()
 
         ) {
             Text(text = message.text, fontSize = 16.sp, color = Color.Black)
@@ -176,7 +186,7 @@ fun MessagesList(messages: List<Message>, modifier: Modifier = Modifier) {
         reverseLayout = true
     ) {
         items(messages.reversed()) { message ->
-            if(message.isUser){
+            if(message.isUser == "request"){
                 UserMessageItem(message)
 
             }
@@ -224,9 +234,7 @@ fun UserInput(
             shape = RoundedCornerShape(15.dp, 15.dp, 15.dp, 15.dp),
             placeholder = { Text(text = "Type a message") },
             singleLine = true,
-            trailingIcon = {
-                uploadbutton(fileUploadViewModel =fileUploadViewModel )
-            }
+
         )
         Button(
             onClick = onSendClick,
@@ -246,106 +254,181 @@ fun UserInput(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
-    messageViewModel: MessageViewModel,
+    chatListViewModel: ChatListViewModel,
     fileUploadViewModel: FileUploadViewModel,
     modifier: Modifier = Modifier) {
-    var messages by remember { mutableStateOf(listOf<Message>()) }
     var textState by remember { mutableStateOf(TextFieldValue("")) }
+    var chunksTextState by remember { mutableStateOf(TextFieldValue("")) }
+    var numOfResultsTextState by remember { mutableStateOf(TextFieldValue("")) }
     var fileNames by fileUploadViewModel.fileNames
     var uploadStatus by fileUploadViewModel.uploadStatus
-    Column(modifier = modifier
-        .fillMaxSize()
-        .verticalScroll(rememberScrollState()))
-    {
-        val messageState = messageViewModel.messageState
-        val context = LocalContext.current
-        MessagesList(messages = messages, modifier = modifier.weight(1f))
+    var selectedChatUiState = chatListViewModel.selectedChatUiState
+    var messages = chatListViewModel.messages
+    var showPopup by fileUploadViewModel.showPopup
 
-        UserInput(
-            textState = textState,
+    var settingsState = chatListViewModel.settingsState
+    if (showPopup) {
+        Dialog(onDismissRequest = { showPopup = false }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(text = "Chat settings", style = MaterialTheme.typography.bodySmall)
 
-            onTextChange = { textState = it },
+                    TextField(
+                        value = chunksTextState,
+                        onValueChange = {  chunksTextState = it },
+                        label = { Text("chunks") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextField(
+                        value = numOfResultsTextState,
+                        onValueChange = { numOfResultsTextState = it },
+                        label = { Text("Number of results") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-            onSendClick = {
-                val localTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).toString()
-                if (textState.text.isNotBlank() && uploadStatus == "Upload Successful") {
-                    messages = messages + Message(textState.text,true,localTime)
-                    messages= messages + Message("Loading ... ",false,"")
-                    messageViewModel.sendMessage(fileNames,textState.text,500,2)
-                    textState = TextFieldValue("")
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Button(onClick = { showPopup = false }, colors = ButtonDefaults.buttonColors(containerColor= Color(0xFF0084FF)),
+                        ) {
+                            Text("Close")
+                        }
+                        Spacer(modifier = Modifier.padding(2.dp))
+                        Button(onClick = {
+
+                            var chunks = try {
+                                chunksTextState.text.toInt()
+                            }catch (e:Exception){500}
+                            var numberOfResults = try {
+                                numOfResultsTextState.text.toInt()
+                            }catch (e:Exception){5}
+                            when(selectedChatUiState){
+                                is SelectedChatUiState.Success->{
+                                    chatListViewModel.postSettings(chatId = selectedChatUiState.chat.id,chunks = chunks, numofresutls = numberOfResults)
+                                    showPopup = false
+                                }
+                                else ->{}
+                            }
+                        }, colors = ButtonDefaults.buttonColors(containerColor= Color(0xFF0084FF)),
+                        ) {
+                            Text("OK")
+                        }
+                    }
                 }
-                else{
-                    Toast.makeText(context, "Empty Field", Toast.LENGTH_SHORT)
-                }
+            }
+        }
+    }
 
-            },
-            fileUploadViewModel=fileUploadViewModel,
-            modifier = modifier
+    Column(
+            modifier = Modifier.fillMaxSize()
         )
-        LaunchedEffect(messageState) {
-            when (messageState) {
-                is MessageState.Success -> {
-                    messages = messages.dropLast(1)
-                    messages = messages + messageState.message
+        {
+            when(selectedChatUiState) {
+                is SelectedChatUiState.Success -> {
+                val context = LocalContext.current
+                var messageState = chatListViewModel.messageState
+
+                MessagesList(messages = messages, modifier = Modifier.weight(1f))
+
+                UserInput(
+                    textState = textState,
+                    onTextChange = { textState = it },
+                    onSendClick = {
+                        val localTime =
+                            LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).toString()
+                        if (textState.text.isNotBlank()) {
+                            if(uploadStatus == "Upload Successful"){
+                            chatListViewModel.sendMessage(chatId = selectedChatUiState.chat.id,message=Message(textState.text,"request",localTime))
+                            textState = TextFieldValue("")
+                            }
+                            else{
+                                Toast.makeText(context, "Please upload you files first!", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            Toast.makeText(context, "Empty Field", Toast.LENGTH_SHORT).show()
+                        }
+                    },
+                    fileUploadViewModel = fileUploadViewModel,
+                    modifier = Modifier
+                )
+                LaunchedEffect(messageState) {
+                    when (messageState) {
+                        is MessageState.Success -> {
+                            messages = messages + messageState.message
+                        }
+                        is MessageState.Loading -> {
+                        }
+                        is MessageState.Error -> {
+                            val localTime =
+                                LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                                    .toString()
+                            messages = messages + Message(
+                                "Something went wrong, please ask your question again",
+                                "response",
+                                localTime
+                            )
+                        }
+                    }
                 }
-                is MessageState.Loading -> {
-                }
-                is MessageState.Error -> {
-                    val localTime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).toString()
-                    messages = messages.dropLast(1)
-                    messages = messages + Message("Something went wrong, please ask your question again", false,localTime)
-                }
+            }
+           is SelectedChatUiState.Loading -> {
+                CircularProgressIndicator()
+            }
+            is SelectedChatUiState.Error ->{
+                Text(text = "Error!!!!!!")
             }
         }
     }
 }
 
 
-
 @Composable
-fun uploadbutton(fileUploadViewModel:FileUploadViewModel){
-    var selectedFileUris by fileUploadViewModel.selectedFileUris
-    var uploadStatus by fileUploadViewModel.uploadStatus
-    val fileNames by fileUploadViewModel.fileNames
-    val resultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris: List<Uri> ->
-        fileUploadViewModel.updateSelectedFileUris(uris)
+fun PopupWithTextField() {
+    // State to control dialog visibility
+    val showDialog = remember { mutableStateOf(false) }
+    var textFieldValue by remember { mutableStateOf("") }
+
+    // Button to show the dialog
+    Button(onClick = { showDialog.value = true }) {
+        Text("Show Popup")
     }
-    val context = LocalContext.current
 
-    Column {
-        Button(
-            onClick = {
-                resultLauncher.launch(arrayOf("*/*"))
+    // Dialog implementation
+    if (showDialog.value) {
+        Dialog(onDismissRequest = { showDialog.value = false }) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                shape = RoundedCornerShape(8.dp),
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(text = "Enter your text", style = MaterialTheme.typography.bodySmall)
 
-            },
-            colors = ButtonDefaults.buttonColors(
-                Color.Transparent
-            ),
-        ) {
-            Icon(
-                painter =
-                when (uploadStatus) {
-                    "Upload Failed" -> painterResource(id = R.drawable.baseline_error_outline_24)
-                    else -> painterResource(id = R.drawable.baseline_attach_file_24)
-                },
-                contentDescription = "Attach File",
-                tint =
-                when (uploadStatus) {
-                    "Upload Failed" -> Color.Red
-                    else -> Color.DarkGray
-                },
-                modifier = Modifier.background(Color.Transparent)
-            )
-        }
+                    // TextField for user input
+                    TextField(
+                        value = textFieldValue,
+                        onValueChange = { textFieldValue = it },
+                        label = { Text("Text Field") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
+                    Spacer(modifier = Modifier.height(8.dp))
 
-    }
-    LaunchedEffect(uploadStatus) {
-
-        when (uploadStatus) {
-            "Upload Successful" -> Toast.makeText(context, "Files Uploaded successfully", Toast.LENGTH_SHORT).show()
-            "Upload Failed" -> Toast.makeText(context, "Error occurred Uploading files", Toast.LENGTH_SHORT).show()
-            null -> {}
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                        Button(onClick = { showDialog.value = false }) {
+                            Text("Close")
+                        }
+                    }
+                }
+            }
         }
     }
 }

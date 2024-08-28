@@ -10,7 +10,7 @@ data class Message(
     @SerialName(value = "content")
     val text: String,
     @SerialName("message_type")
-    val isUser: Boolean,
+    val isUser: String,
     @SerialName("message_time")
     val date:String
 )

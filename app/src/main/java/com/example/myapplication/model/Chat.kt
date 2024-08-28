@@ -5,10 +5,22 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 data class Chat(
-    @SerialName(value = "id")
+    @SerialName(value = "_id")
     val id:String,
 
     @SerialName(value = "title")
-    val title:String
+    val title:String,
+
+    @SerialName(value = "messages")
+    val messages:List<Message> = listOf(),
+
+    @SerialName(value = "chunks")
+    val   chunks :Int = 500,
+
+    @SerialName(value = "numofresults")
+    val numofresults:Int =1,
+
+    @SerialName(value = "fileNames")
+    val fileNames:List<String> =listOf()
 
 )
