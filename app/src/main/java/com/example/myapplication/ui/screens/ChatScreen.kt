@@ -37,6 +37,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +58,7 @@ import com.example.myapplication.viewModel.ChatListViewModel
 import com.example.myapplication.viewModel.FileUploadViewModel
 import com.example.myapplication.viewModel.MessageState
 import com.example.myapplication.viewModel.SelectedChatUiState
+import com.example.myapplication.viewModel.UserLoginState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
@@ -265,7 +267,7 @@ fun ChatScreen(
     var selectedChatUiState = chatListViewModel.selectedChatUiState
     var messages = chatListViewModel.messages
     var showPopup by fileUploadViewModel.showPopup
-
+    var userLoginState:UserLoginState = chatListViewModel.userLoginState
     var settingsState = chatListViewModel.settingsState
     if (showPopup) {
         Dialog(onDismissRequest = { showPopup = false }) {
@@ -311,7 +313,15 @@ fun ChatScreen(
                             }catch (e:Exception){5}
                             when(selectedChatUiState){
                                 is SelectedChatUiState.Success->{
-                                    chatListViewModel.postSettings(chatId = selectedChatUiState.chat.id,chunks = chunks, numofresutls = numberOfResults)
+                                    when (userLoginState){
+                                        is UserLoginState.Success->{
+                                            chatListViewModel.postSettings(token = userLoginState.token, chatId = selectedChatUiState.chat.id,chunks = chunks, numofresutls = numberOfResults)
+
+                                        }
+                                        else ->{
+
+                                        }
+                                    }
                                     showPopup = false
                                 }
                                 else ->{}
@@ -345,7 +355,13 @@ fun ChatScreen(
                             LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).toString()
                         if (textState.text.isNotBlank()) {
                             if(uploadStatus == "Upload Successful"){
-                            chatListViewModel.sendMessage(chatId = selectedChatUiState.chat.id,message=Message(textState.text,"request",localTime))
+                                when(userLoginState){
+                                    is UserLoginState.Success->{
+                                        chatListViewModel.sendMessage(token = userLoginState.token, chatId = selectedChatUiState.chat.id,message=Message(textState.text,"request",localTime))
+
+                                    }
+                                    else ->{}
+                                }
                             textState = TextFieldValue("")
                             }
                             else{
@@ -379,10 +395,10 @@ fun ChatScreen(
                 }
             }
            is SelectedChatUiState.Loading -> {
-                CircularProgressIndicator()
+                LoadingScreen()
             }
             is SelectedChatUiState.Error ->{
-                Text(text = "Error!!!!!!")
+                ErrorScreen {}
             }
         }
     }

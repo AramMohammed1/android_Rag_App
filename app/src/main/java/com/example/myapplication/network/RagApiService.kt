@@ -1,4 +1,4 @@
-package com.example.myapplication.Network
+package com.example.myapplication.network
 
 import com.example.myapplication.model.ModelMessageResponse
 import com.example.myapplication.model.RagRequestModel
@@ -34,6 +34,9 @@ interface RagApiService{
     @POST("/api/query/")
     @Headers("Content-Type: application/json")
     suspend fun postQuestion(@Body request:RagRequestModel): ModelMessageResponse
+
+
+
 
 
     @Multipart

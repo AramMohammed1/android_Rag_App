@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.Button
@@ -28,7 +27,6 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,10 +36,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -49,15 +45,14 @@ import com.example.myapplication.RagAppScreen
 import com.example.myapplication.model.Chat
 import com.example.myapplication.viewModel.ChatListUiState
 import com.example.myapplication.viewModel.ChatListViewModel
-import com.example.myapplication.viewModel.MessageState
-import com.example.myapplication.viewModel.NewChatCreateState
+import com.example.myapplication.viewModel.UserLoginState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 
 @RequiresApi(Build.VERSION_CODES.O)
 @Composable
-fun ChannelListScreen(
+fun ChatListScreen(
     chatListViewModel: ChatListViewModel,
     onButtonClick: ()->Unit = {},
     modifier: Modifier=Modifier
@@ -65,53 +60,48 @@ fun ChannelListScreen(
     var chatListUiState = chatListViewModel.chatListUiState
     var newChatCreateState = chatListViewModel.newChatCreateState
     var showNewChatPopUp = chatListViewModel.showNewChatPopUp
+    var userLoginState = chatListViewModel.userLoginState
     Box(
         modifier = Modifier.fillMaxSize(),
         contentAlignment = Alignment.Center,
     ) {
-        LazyColumn(Modifier.fillMaxSize()) {
             when (chatListUiState) {
                 is ChatListUiState.Success -> {
-                    items(chatListUiState.chats) { channel ->
-                        ChannelListItem(channel = channel, chatListViewModel=chatListViewModel,onButtonClick = onButtonClick)
-                        Divider()
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(chatListUiState.chats) { channel ->
+                            ChatListItem(channel = channel, chatListViewModel=chatListViewModel,onButtonClick = onButtonClick)
+                            Divider()
+                        }
+                    }
+                    Box(modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(20.dp)){
+                        CreateNewChat {
+                            showNewChatPopUp.value=true
+                        }
                     }
                 }
 
                 is ChatListUiState.Error -> {
-                    item {
-                        Text(text = "Error!!!")
-                    }
+                        ErrorScreen(onRetryButton = {
+                            if(userLoginState is UserLoginState.Success)
+                            chatListViewModel.getAllChats(token = userLoginState.token)
+                        })
+
                 }
 
                 is ChatListUiState.Loading -> {
-                    item {
-                        CircularProgressIndicator()
-                    }
+                        LoadingScreen()
+
                 }
 
             }
         }
         var localTime :String =LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)
-
-
-        Box(modifier = Modifier
-            .align(Alignment.BottomEnd)
-            .padding(20.dp)){
-
-            CreateNewChat {
-                    showNewChatPopUp.value=true
-//                        chatListViewModel.createNewChat(
-//                    listOf("ahmadali"),
-//                    localTime,
-//                    "aramtest2"
-//                )
-            }
-        }
         if(showNewChatPopUp.value){
             createNewChatPopup(chatListViewModel,{showNewChatPopUp.value=false})
         }
-    }
+
 
 
 }
@@ -123,7 +113,8 @@ fun createNewChatPopup(
     chatListViewModel: ChatListViewModel,
     onDismissRequest:()->Unit={}){
     var chatTitleTextState by remember { mutableStateOf(TextFieldValue("")) }
-        Dialog(onDismissRequest = onDismissRequest) {
+    var userLoginState = chatListViewModel.userLoginState
+    Dialog(onDismissRequest = onDismissRequest) {
             Surface(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -143,8 +134,13 @@ fun createNewChatPopup(
                         Button(onClick = {
                             var localTime :String =LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME)
                             if(chatTitleTextState.text!=""){
-                            chatListViewModel.createNewChat(listOf("ahmadali"),localTime,chatTitleTextState.text)
-                            onDismissRequest()
+                                when(userLoginState){
+                                    is UserLoginState.Success ->{
+                                        chatListViewModel.createNewChat(userLoginState.token,localTime,chatTitleTextState.text)
+                                    }
+                                    else -> { }
+                                }
+                                onDismissRequest()
                             } },
                             colors = ButtonDefaults.buttonColors(containerColor= Color(0xFF0084FF)),
                         ) {
@@ -157,16 +153,24 @@ fun createNewChatPopup(
 }
 
 @Composable
-fun ChannelListItem(
+fun ChatListItem(
     channel: Chat,
     chatListViewModel: ChatListViewModel,
     onButtonClick: ()->Unit = {},
     modifier: Modifier=Modifier)
     {
+        var userLoginState:UserLoginState = chatListViewModel.userLoginState
 
-    Card(
+        Card(
         onClick = {
-            chatListViewModel.setSelectedChat(channel.id)
+            when(userLoginState){
+                is UserLoginState.Success ->{
+                    chatListViewModel.setSelectedChat(userLoginState.token,channel.id)
+                }
+                else ->{
+
+                }
+            }
             RagAppScreen.ChatScreen.title= channel.title
             onButtonClick()
         }
@@ -184,7 +188,6 @@ fun ChannelListItem(
                     style = TextStyle(fontWeight = FontWeight.Bold),
                     fontSize = 18.sp,
                 )
-                //channel.messages.lastOrNull() ?:
                 val lastMessageText =  channel.messages.lastOrNull()?.text ?: "..."
                 Text(
                     text = lastMessageText,

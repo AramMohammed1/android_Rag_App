@@ -4,21 +4,25 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.text.font.FontVariation
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.myapplication.RagApplication
-import com.example.myapplication.database.BackRepo
+import com.example.myapplication.services.IService
 import com.example.myapplication.model.Chat
 import com.example.myapplication.model.Message
 import com.example.myapplication.model.NewChatRequest
+import com.example.myapplication.utils.TokenManager
 import kotlinx.coroutines.launch
-import java.io.IOException
-import java.net.ConnectException
+
+sealed interface UserLoginState{
+    data class Success(val token:String):UserLoginState
+    object Error:UserLoginState
+    object Loading:UserLoginState
+}
 
 
 sealed interface ChatListUiState{
@@ -53,7 +57,7 @@ sealed interface SettingsState{
     object Error :SettingsState
 }
 
-class ChatListViewModel(private val backRepo: BackRepo): ViewModel() {
+class ChatListViewModel(private val service: IService,private val tokenManager: TokenManager): ViewModel() {
     var chatListUiState: ChatListUiState by mutableStateOf(ChatListUiState.Loading)
         internal set
     var newChatCreateState: NewChatCreateState by mutableStateOf(NewChatCreateState.Loading)
@@ -66,28 +70,58 @@ class ChatListViewModel(private val backRepo: BackRepo): ViewModel() {
         internal set
     var messages:List<Message> by mutableStateOf<List<Message>>(emptyList())
         internal set
+    var userLoginState :UserLoginState by mutableStateOf(UserLoginState.Loading)
+        internal set
     val showNewChatPopUp = mutableStateOf(false)
     init {
-        getAllChats("ahmadali")
+//        getAllChats("ahmadali")
     }
-    fun getAllChats(userName:String){
+    fun getAllChats(token:String){
         viewModelScope.launch {
             chatListUiState = ChatListUiState.Loading
             chatListUiState = try {
-                ChatListUiState.Success(backRepo.getAllChats(userName).chatList)
+                ChatListUiState.Success(service.getAllChats(token).chatList)
             }
             catch (e: Exception){
-                Log.e("aram",e.toString())
                 ChatListUiState.Error
             }
         }
     }
+    fun login(email:String,password:String){
+        viewModelScope.launch {
+            userLoginState= UserLoginState.Loading
+            userLoginState=try{
+                val token=service.login(email,password)
+                tokenManager.saveToken(token)
+                UserLoginState.Success(token)
+            }
+            catch (e:Exception){
+                UserLoginState.Error
+            }
+        }
+    }
+    fun logout() {
+        tokenManager.clearToken()
+        userLoginState = UserLoginState.Error
+    }
 
-    fun setSelectedChat(chatId:String){
+    fun signup(email:String,password:String){
+        viewModelScope.launch {
+            userLoginState= UserLoginState.Loading
+            userLoginState=try{
+                UserLoginState.Success(service.signup(email, password))
+            }
+            catch (e:Exception){
+                UserLoginState.Error
+            }
+        }
+    }
+
+    fun setSelectedChat(token:String,chatId:String){
         viewModelScope.launch {
             selectedChatUiState = SelectedChatUiState.Loading
             selectedChatUiState = try {
-                var chat = backRepo.getSelectedChat(chatId)
+                var chat = service.getSelectedChat(token,chatId)
                 messages=chat.messages
                 SelectedChatUiState.Success(chat)
             }
@@ -96,13 +130,13 @@ class ChatListViewModel(private val backRepo: BackRepo): ViewModel() {
             }
         }
     }
-    fun sendMessage(chatId:String,message:Message){
+    fun sendMessage(token:String,chatId:String,message:Message){
         viewModelScope.launch {
             messageState=MessageState.Loading
             messageState=
                 try{
                     messages=messages+message
-                    var response = backRepo.postNewMessage(chatId,message)
+                    var response = service.postNewMessage(token,chatId,message)
                     messages=messages+response
                     MessageState.Success(message)
                 }
@@ -111,11 +145,11 @@ class ChatListViewModel(private val backRepo: BackRepo): ViewModel() {
                 }
         }
     }
-    fun postSettings(chatId:String,chunks:Int,numofresutls :Int){
+    fun postSettings(token:String,chatId:String,chunks:Int,numofresutls :Int){
         viewModelScope.launch {
             settingsState = SettingsState.Loading
             try {
-                backRepo.updateSettings(chatId,chunks,numofresutls)
+                service.updateSettings(token,chatId,chunks,numofresutls)
                 SettingsState.Success
             }
             catch (e:Exception){
@@ -123,15 +157,13 @@ class ChatListViewModel(private val backRepo: BackRepo): ViewModel() {
             }
         }
     }
-    fun createNewChat(participant:List<String>,createdAt:String,title:String) {
+    fun createNewChat(token:String,createdAt:String,title:String) {
         viewModelScope.launch {
             newChatCreateState = NewChatCreateState.Loading
             try {
-                val newChat = backRepo.createNewChat(NewChatRequest(participant, createdAt, title))
+                val newChat = service.createNewChat(token,NewChatRequest(createdAt, title))
                 newChatCreateState = NewChatCreateState.Success
-
-                // Refresh the chat list after successful chat creation
-                getAllChats("ahmadali")
+                getAllChats(token)
             } catch (e: Exception) {
                 newChatCreateState = NewChatCreateState.Error
             }
@@ -141,8 +173,9 @@ class ChatListViewModel(private val backRepo: BackRepo): ViewModel() {
         val Factory:ViewModelProvider.Factory = viewModelFactory {
             initializer {
                 val application = (this[ViewModelProvider.AndroidViewModelFactory.APPLICATION_KEY] as RagApplication)
-                val backRepo = application.container.backRepo
-                ChatListViewModel(backRepo)
+                val service = application.container.backRepo
+                val tokenManager = TokenManager(application.applicationContext)
+                ChatListViewModel(service,tokenManager)
             }
         }
     }

@@ -1,6 +1,6 @@
-package com.example.myapplication.database
+package com.example.myapplication.services
 
-import com.example.myapplication.Network.RagApiService
+import com.example.myapplication.network.RagApiService
 import com.example.myapplication.model.ModelMessageResponse
 import com.example.myapplication.model.RagRequestModel
 import com.example.myapplication.model.UploadResponse
@@ -10,8 +10,6 @@ import retrofit2.Response
 interface RagResponseRepo {
     suspend fun postQuestion(fileNames:List<String>,question:String,chunks:Int,numofresults:Int ):ModelMessageResponse
     suspend fun uploadFiles(files: List<MultipartBody.Part>): Response<UploadResponse>
-
-
 }
 
 class NetworkRagRepository(private val apiService:RagApiService):RagResponseRepo{

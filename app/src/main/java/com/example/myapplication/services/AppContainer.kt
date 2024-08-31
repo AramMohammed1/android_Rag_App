@@ -1,13 +1,13 @@
-package com.example.myapplication.database
+package com.example.myapplication.services
 
-import android.app.backup.BackupHelper
-import com.example.myapplication.Network.BackApiService
-import com.example.myapplication.Network.RagApiService
+import com.example.myapplication.network.BackApiService
+import com.example.myapplication.network.RagApiService
+import com.example.myapplication.utils.TokenManager
 
 
 interface AppContainer{
     val ragResponseRepo:RagResponseRepo
-    val backRepo:BackRepo
+    val backRepo:IService
 }
 
 class DefaultAppContainer():AppContainer{
@@ -22,7 +22,7 @@ class DefaultAppContainer():AppContainer{
         NetworkRagRepository(ragRetrofitService)
     }
 
-    override val backRepo: BackRepo by lazy{
-        NetworkBackRepository(backRetrofitService)
+    override val backRepo: IService by lazy{
+        NetworkService(backRetrofitService)
     }
 }
