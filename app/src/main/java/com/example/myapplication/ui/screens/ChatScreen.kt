@@ -1,6 +1,7 @@
 package com.example.myapplication.ui.screens
 
 import android.os.Build
+import android.util.Log
 import android.widget.Toast
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.Image
@@ -25,9 +26,13 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -53,6 +58,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.example.myapplication.R
+import com.example.myapplication.model.LLMModel
 import com.example.myapplication.model.Message
 import com.example.myapplication.viewModel.ChatListViewModel
 import com.example.myapplication.viewModel.FileUploadViewModel
@@ -61,7 +67,7 @@ import com.example.myapplication.viewModel.SelectedChatUiState
 import com.example.myapplication.viewModel.UserLoginState
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-
+import kotlin.math.exp
 
 
 @Composable
@@ -262,6 +268,7 @@ fun ChatScreen(
     var textState by remember { mutableStateOf(TextFieldValue("")) }
     var chunksTextState by remember { mutableStateOf(TextFieldValue("")) }
     var numOfResultsTextState by remember { mutableStateOf(TextFieldValue("")) }
+    var expanded by remember { mutableStateOf(false) }
     var fileNames by fileUploadViewModel.fileNames
     var uploadStatus by fileUploadViewModel.uploadStatus
     var selectedChatUiState = chatListViewModel.selectedChatUiState
@@ -269,6 +276,14 @@ fun ChatScreen(
     var showPopup by fileUploadViewModel.showPopup
     var userLoginState:UserLoginState = chatListViewModel.userLoginState
     var settingsState = chatListViewModel.settingsState
+    var modelsList = chatListViewModel.modelsList
+    var selectedItem by remember { mutableStateOf("Choose a model") }
+
+    LaunchedEffect(modelsList){
+        if(userLoginState is UserLoginState.Success){
+            chatListViewModel.getModels(userLoginState.token)
+        }
+    }
     if (showPopup) {
         Dialog(onDismissRequest = { showPopup = false }) {
             Surface(
@@ -279,7 +294,44 @@ fun ChatScreen(
             ) {
                 Column(modifier = Modifier.padding(16.dp)) {
                     Text(text = "Chat settings", style = MaterialTheme.typography.bodySmall)
+                    ExposedDropdownMenuBox(
+                        expanded = expanded,
+                        onExpandedChange = { expanded = !expanded },
+                    ) {
+                        OutlinedTextField(
+                            readOnly = true,
+                            value = selectedItem,
+                            onValueChange = {
 
+                            },
+                            label = { Text(text = "LLM Model") },
+                            trailingIcon = {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded)
+                            },
+                            colors = OutlinedTextFieldDefaults.colors(),
+                            modifier = Modifier
+                                .menuAnchor()
+                                .fillMaxWidth()
+                        )
+
+                        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                            modelsList.forEach { option: LLMModel ->
+                                DropdownMenuItem(
+                                    text = {
+                                        Column {
+                                            Text(text = option.name)
+                                            Text(text = option.description)
+                                        }
+                                    },
+                                    onClick = {
+                                        expanded = false
+
+                                        selectedItem = option.name
+                                    }
+                                )
+                            }
+                        }
+                    }
                     TextField(
                         value = chunksTextState,
                         onValueChange = {  chunksTextState = it },
@@ -315,7 +367,7 @@ fun ChatScreen(
                                 is SelectedChatUiState.Success->{
                                     when (userLoginState){
                                         is UserLoginState.Success->{
-                                            chatListViewModel.postSettings(token = userLoginState.token, chatId = selectedChatUiState.chat.id,chunks = chunks, numofresutls = numberOfResults)
+                                            chatListViewModel.postSettings(token = userLoginState.token, chatId = selectedChatUiState.chat.id, modelName = selectedItem, chunks = chunks, numofresutls = numberOfResults)
 
                                         }
                                         else ->{
@@ -344,13 +396,18 @@ fun ChatScreen(
                 is SelectedChatUiState.Success -> {
                 val context = LocalContext.current
                 var messageState = chatListViewModel.messageState
+                if(selectedChatUiState is SelectedChatUiState.Success){
+                    if(selectedChatUiState.chat.fileName.isNotEmpty()){
+                        uploadStatus = "Upload Successful"
+                    }
+                }
 
                 MessagesList(messages = messages, modifier = Modifier.weight(1f))
-
                 UserInput(
                     textState = textState,
                     onTextChange = { textState = it },
                     onSendClick = {
+
                         val localTime =
                             LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME).toString()
                         if (textState.text.isNotBlank()) {
@@ -404,48 +461,4 @@ fun ChatScreen(
     }
 }
 
-
-@Composable
-fun PopupWithTextField() {
-    // State to control dialog visibility
-    val showDialog = remember { mutableStateOf(false) }
-    var textFieldValue by remember { mutableStateOf("") }
-
-    // Button to show the dialog
-    Button(onClick = { showDialog.value = true }) {
-        Text("Show Popup")
-    }
-
-    // Dialog implementation
-    if (showDialog.value) {
-        Dialog(onDismissRequest = { showDialog.value = false }) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = "Enter your text", style = MaterialTheme.typography.bodySmall)
-
-                    // TextField for user input
-                    TextField(
-                        value = textFieldValue,
-                        onValueChange = { textFieldValue = it },
-                        label = { Text("Text Field") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                        Button(onClick = { showDialog.value = false }) {
-                            Text("Close")
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
 

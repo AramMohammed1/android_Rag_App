@@ -4,7 +4,6 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
@@ -13,9 +12,10 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.myapplication.RagApplication
 import com.example.myapplication.services.IService
 import com.example.myapplication.model.Chat
+import com.example.myapplication.model.LLMModel
 import com.example.myapplication.model.Message
 import com.example.myapplication.model.NewChatRequest
-import com.example.myapplication.utils.TokenManager
+import com.example.myapplication.utils.auth.TokenManager
 import kotlinx.coroutines.launch
 
 sealed interface UserLoginState{
@@ -72,6 +72,8 @@ class ChatListViewModel(private val service: IService,private val tokenManager: 
         internal set
     var userLoginState :UserLoginState by mutableStateOf(UserLoginState.Loading)
         internal set
+    var modelsList : List<LLMModel> by mutableStateOf(emptyList<LLMModel>())
+        internal set
     val showNewChatPopUp = mutableStateOf(false)
     init {
 //        getAllChats("ahmadali")
@@ -119,10 +121,12 @@ class ChatListViewModel(private val service: IService,private val tokenManager: 
 
     fun setSelectedChat(token:String,chatId:String){
         viewModelScope.launch {
+            Log.e("aram3","here")
             selectedChatUiState = SelectedChatUiState.Loading
             selectedChatUiState = try {
                 var chat = service.getSelectedChat(token,chatId)
                 messages=chat.messages
+                Log.e("aram3",chat.fileName.toString())
                 SelectedChatUiState.Success(chat)
             }
             catch (e: Exception){
@@ -145,11 +149,11 @@ class ChatListViewModel(private val service: IService,private val tokenManager: 
                 }
         }
     }
-    fun postSettings(token:String,chatId:String,chunks:Int,numofresutls :Int){
+    fun postSettings(token:String,chatId:String,modelName:String,chunks:Int,numofresutls :Int){
         viewModelScope.launch {
             settingsState = SettingsState.Loading
             try {
-                service.updateSettings(token,chatId,chunks,numofresutls)
+                service.updateSettings(token = token,chatId = chatId,chunks =chunks, numOfResults = numofresutls, modelName =  modelName)
                 SettingsState.Success
             }
             catch (e:Exception){
@@ -166,6 +170,17 @@ class ChatListViewModel(private val service: IService,private val tokenManager: 
                 getAllChats(token)
             } catch (e: Exception) {
                 newChatCreateState = NewChatCreateState.Error
+            }
+        }
+    }
+
+    fun getModels(token:String){
+        viewModelScope.launch {
+            modelsList = try {
+                service.getModels(token).models
+            }
+            catch (e:Exception){
+                emptyList<LLMModel>()
             }
         }
     }

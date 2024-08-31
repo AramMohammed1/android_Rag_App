@@ -20,7 +20,11 @@ data class Chat(
     @SerialName(value = "numofresults")
     val numofresults:Int =1,
 
-    @SerialName(value = "fileNames")
-    val fileNames:List<String> =listOf()
+    @SerialName(value = "fileName")
+    val fileName:List<String> =listOf(),
 
-)
+    @SerialName(value = "modelname")
+    val modelName:String="llama",
+
+
+    )

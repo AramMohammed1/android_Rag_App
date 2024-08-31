@@ -9,5 +9,7 @@ data class SettingRequest(
     val chunks:Int=500,
     @SerialName(value = "numofresults")
     val numofresults:Int=3,
+    @SerialName(value = "modelname")
+    val modelname:String,
 
 )

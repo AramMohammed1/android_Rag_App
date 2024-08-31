@@ -3,6 +3,7 @@ package com.example.myapplication.network
 import android.util.Log
 import com.example.myapplication.model.Chat
 import com.example.myapplication.model.GetAllChatsResponse
+import com.example.myapplication.model.LLMModelsResponse
 import com.example.myapplication.model.Message
 import com.example.myapplication.model.NewChatRequest
 import com.example.myapplication.model.SettingRequest
@@ -14,6 +15,7 @@ import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFact
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.MultipartBody
+import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.http.Body
@@ -28,6 +30,15 @@ import retrofit2.http.Part
 import retrofit2.http.Path
 
 
+fun getLoggerInterceptor(): HttpLoggingInterceptor {
+    val logging = HttpLoggingInterceptor()
+    logging.level = HttpLoggingInterceptor.Level.BODY
+    return logging
+
+}
+
+
+
 val BackRsponseJson= Json{
     ignoreUnknownKeys = true
 }
@@ -39,17 +50,25 @@ interface BackApiService{
         @Body sign:Sign
     ):String
 
+
     @POST("users/signup")
     @Headers("Content-Type: application/json")
     suspend fun signup(
         @Body sign:Sign
     ):String
 
+    @GET("get/models")
+    suspend fun getModels(
+        @Header("Authorization") token: String
+    ): LLMModelsResponse
+
     @GET("user/chats")
     suspend fun getAllChats(
         @Header("Authorization") token: String
     ): GetAllChatsResponse
 
+
+    @Headers("Content-Type: application/json")
     @GET("chat/{chat_id}")
     suspend fun getSelectedChat(
         @Header("Authorization") token: String,
@@ -92,7 +111,9 @@ interface BackApiService{
         val retrofit: Retrofit = Retrofit.Builder()
             .client(
                 okhttp3.OkHttpClient.Builder()
-                    .addInterceptor(getLoggerInterceptor())
+                    .addInterceptor(
+                        getLoggerInterceptor()
+                    )
                     .build()
             )
             .addConverterFactory(BackRsponseJson.asConverterFactory("application/json".toMediaType()))

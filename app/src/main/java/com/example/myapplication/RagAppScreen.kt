@@ -2,18 +2,15 @@ package com.example.myapplication
 
 import android.net.Uri
 import android.os.Build
-import android.util.Log
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -42,7 +39,7 @@ import com.example.myapplication.ui.screens.ChatScreen
 import com.example.myapplication.ui.screens.HomeScreen
 import com.example.myapplication.ui.screens.LoginScreen
 import com.example.myapplication.ui.screens.RegisterScreen
-import com.example.myapplication.utils.TokenManager
+import com.example.myapplication.utils.auth.TokenManager
 import com.example.myapplication.viewModel.ChatListViewModel
 import com.example.myapplication.viewModel.FileUploadViewModel
 import com.example.myapplication.viewModel.SelectedChatUiState
@@ -94,8 +91,9 @@ fun RagAppBar(
 
     }
     var showPopup by fileUploadViewModel.showPopup
-    val uploadStatus by fileUploadViewModel.uploadStatus
+    var uploadStatus by fileUploadViewModel.uploadStatus
     val context = LocalContext.current
+
     TopAppBar(
         title = { Text(text =  currentScreen.title) },
         colors = TopAppBarDefaults.mediumTopAppBarColors(
@@ -115,6 +113,11 @@ fun RagAppBar(
     actions = {
 
         if(currentScreen.title ==RagAppScreen.ChatScreen.title ) {
+            if(selectedChatUiState is SelectedChatUiState.Success){
+                if(selectedChatUiState.chat.fileName.isNotEmpty()){
+                    uploadStatus="Upload Successful"
+                }
+            }
             IconButton(onClick = {
                 resultLauncher.launch(arrayOf("*/*"))
             }) {
@@ -153,12 +156,14 @@ fun RagAppBar(
                 }
             }
         }
-        IconButton(onClick = {
-            chatListViewModel.logout()
-            navController.navigate(RagAppScreen.HomeScreen.name)
+        if(userLoginState is UserLoginState.Success){
+            IconButton(onClick = {
+                chatListViewModel.logout()
+                navController.navigate(RagAppScreen.HomeScreen.name)
 
-        }) {
-            Icon(painter = painterResource(id = R.drawable.baseline_logout_24), contentDescription ="logout" )
+            }) {
+                Icon(painter = painterResource(id = R.drawable.baseline_logout_24), contentDescription ="logout" )
+            }
         }
     })
 
